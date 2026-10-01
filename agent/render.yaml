@@ -1,0 +1,36 @@
+# Render blueprint for the road_trip backend.
+#
+# Deploy with:  New > Blueprint  ->  point at this repo, root dir = agent
+#
+# The blueprint creates the service and its env-var *names*. You still have to
+# paste real values for GOOGLE_API_KEY and TAVILY_API_KEY in the Render dashboard
+# (Dashboard > your service > Environment), which is deliberate: keys should be
+# entered by you, never committed or sent over chat.
+#
+# sync: false means Render will NOT auto-redeploy on every push. This is
+# intentional - each rebuild costs build minutes and the free tier is stingy.
+# The service is a plain web server; nothing in this repo requires a redeploy
+# to keep the shared link working.
+
+services:
+  - type: web
+    name: roadtrip-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /info
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: CHAT_DB_PATH
+        value: /data/chat.db
+      - key: ASSISTANT_ID
+        value: road_trip
+      # Set sync: false after you add these, so pushes don't wipe the values.
+      # Or just paste them in the dashboard and leave these two as-is below.
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
