@@ -12,14 +12,16 @@ import {
   DO_NOT_RENDER_ID_PREFIX,
   ensureToolCallsHaveResponses,
 } from "@/lib/ensure-tool-responses";
-import { LangGraphLogoSVG } from "../icons/langgraph";
+import { RoadTripLogoSVG } from "../icons/roadtrip";
 import { TooltipIconButton } from "./tooltip-icon-button";
 import {
   ArrowDown,
   LoaderCircle,
   PanelRightOpen,
   PanelRightClose,
+  Route,
   SquarePen,
+  Sparkles,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -80,11 +82,12 @@ function OpenGitHubRepo() {
       <Tooltip>
         <TooltipTrigger asChild>
           <a
-            href="https://github.com/langchain-ai/agent-chat-ui"
+            href="https://github.com/samy3086/roadtrip-chat"
             target="_blank"
-            className="flex items-center justify-center"
+            rel="noreferrer"
+            className="flex items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
           >
-            <GitHubSVG width="24" height="24" />
+            <GitHubSVG width="22" height="22" />
           </a>
         </TooltipTrigger>
         <TooltipContent side="left">
@@ -94,6 +97,8 @@ function OpenGitHubRepo() {
     </TooltipProvider>
   );
 }
+
+
 
 export function Thread() {
   const [threadId, setThreadId] = useQueryState("threadId");
@@ -208,7 +213,7 @@ export function Thread() {
     <div className="flex w-full h-screen overflow-hidden">
       <div className="relative lg:flex hidden">
         <motion.div
-          className="absolute h-full border-r bg-white overflow-hidden z-20"
+          className="absolute h-full border-r bg-card/95 backdrop-blur overflow-hidden z-20"
           style={{ width: 300 }}
           animate={
             isLargeScreen
@@ -252,7 +257,7 @@ export function Thread() {
             <div>
               {(!chatHistoryOpen || !isLargeScreen) && (
                 <Button
-                  className="hover:bg-gray-100"
+                  className="text-muted-foreground hover:text-foreground"
                   variant="ghost"
                   onClick={() => setChatHistoryOpen((p) => !p)}
                 >
@@ -264,7 +269,11 @@ export function Thread() {
                 </Button>
               )}
             </div>
-            <div className="absolute top-2 right-4 flex items-center">
+            <div className="absolute top-2 right-4 flex items-center gap-3">
+              <span className="hidden sm:flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs">
+                <Route className="size-3.5 text-accent" />
+                road_trip agent
+              </span>
               <OpenGitHubRepo />
             </div>
           </div>
@@ -275,7 +284,7 @@ export function Thread() {
               <div className="absolute left-0 z-10">
                 {(!chatHistoryOpen || !isLargeScreen) && (
                   <Button
-                    className="hover:bg-gray-100"
+                    className="text-muted-foreground hover:text-foreground"
                     variant="ghost"
                     onClick={() => setChatHistoryOpen((p) => !p)}
                   >
@@ -288,7 +297,7 @@ export function Thread() {
                 )}
               </div>
               <motion.button
-                className="flex gap-2 items-center cursor-pointer"
+                className="flex gap-2.5 items-center cursor-pointer"
                 onClick={() => setThreadId(null)}
                 animate={{
                   marginLeft: !chatHistoryOpen ? 48 : 0,
@@ -299,9 +308,9 @@ export function Thread() {
                   damping: 30,
                 }}
               >
-                <LangGraphLogoSVG width={32} height={32} />
-                <span className="text-xl font-semibold tracking-tight">
-                  Agent Chat
+                <RoadTripLogoSVG width={30} height={30} />
+                <span className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight">
+                  Road Trip Planner
                 </span>
               </motion.button>
             </div>
@@ -369,19 +378,28 @@ export function Thread() {
               </>
             }
             footer={
-              <div className="sticky flex flex-col items-center gap-8 bottom-0 bg-white">
+              <div className="sticky flex flex-col items-center gap-6 bottom-0">
                 {!chatStarted && (
-                  <div className="flex gap-3 items-center">
-                    <LangGraphLogoSVG className="flex-shrink-0 h-8" />
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      Agent Chat
+                  <div className="flex flex-col items-center gap-3 text-center px-4">
+                    <RoadTripLogoSVG className="flex-shrink-0 h-14 w-14 drop-shadow-sm" />
+                    <h1 className="font-[family-name:var(--font-display)] text-4xl font-semibold tracking-tight text-balance">
+                      Where to next?
                     </h1>
+                    <p className="max-w-md text-sm leading-relaxed text-muted-foreground text-balance">
+                      Give me a route and a date. I&apos;ll work out the distance,
+                      fuel cost, rest stops, where to sleep, and the full budget
+                      in DZD.
+                    </p>
+                    <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent-foreground">
+                      <Sparkles className="size-3.5" />
+                      powered by Gemini + live web search
+                    </span>
                   </div>
                 )}
 
                 <ScrollToBottom className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 animate-in fade-in-0 zoom-in-95" />
 
-                <div className="bg-muted rounded-2xl border shadow-xs mx-auto mb-8 w-full max-w-3xl relative z-10">
+                <div className="bg-card/90 backdrop-blur rounded-2xl border border-border shadow-md mx-auto mb-8 w-full max-w-3xl relative z-10 transition-shadow focus-within:shadow-lg focus-within:border-primary/40">
                   <form
                     onSubmit={handleSubmit}
                     className="grid grid-rows-[1fr_auto] gap-2 max-w-3xl mx-auto"
@@ -402,8 +420,8 @@ export function Thread() {
                           form?.requestSubmit();
                         }
                       }}
-                      placeholder="Type your message..."
-                      className="p-3.5 pb-0 border-none bg-transparent field-sizing-content shadow-none ring-0 outline-none focus:outline-none focus:ring-0 resize-none"
+                      placeholder="e.g. Plan a 3-day trip from Algiers to Oran, leaving 2026-10-05..."
+                      className="p-4 pb-0 border-none bg-transparent field-sizing-content shadow-none ring-0 outline-none focus:outline-none focus:ring-0 resize-none text-[15px] leading-relaxed"
                     />
 
                     <div className="flex items-center justify-between p-2 pt-4">
@@ -416,9 +434,9 @@ export function Thread() {
                           />
                           <Label
                             htmlFor="render-tool-calls"
-                            className="text-sm text-gray-600"
+                            className="text-xs text-muted-foreground"
                           >
-                            Hide Tool Calls
+                            Hide tool calls
                           </Label>
                         </div>
                       </div>
