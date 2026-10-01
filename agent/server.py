@@ -260,6 +260,39 @@ async def create_thread(request: Request) -> dict[str, Any]:
     return row_to_thread(row)
 
 
+@app.get("/threads")
+async def list_threads(request: Request) -> list[dict[str, Any]]:
+    """
+    Plain thread list. The SDK's ThreadsClient.list() is a GET here, but with
+    no GET route on "/threads" FastAPI answered 405, which is the confusing
+    half of "method not allowed" -- the path was right, the verb was not.
+    """
+    try:
+        limit = int(request.query_params.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    metadata_filter = request.query_params.get("metadata")
+
+    conn = db()
+    rows = conn.execute(
+        "SELECT * FROM threads ORDER BY updated_at DESC LIMIT 1000"
+    ).fetchall()
+    conn.close()
+
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if metadata_filter:
+            try:
+                wanted = json.loads(metadata_filter)
+            except Exception:
+                wanted = {}
+            meta = json.loads(row["metadata"])
+            if not all(meta.get(k) == v for k, v in wanted.items()):
+                continue
+        out.append(row_to_thread(row))
+    return out[: max(1, limit)]
+
+
 @app.get("/threads/{thread_id}")
 async def get_thread(thread_id: str) -> JSONResponse:
     conn = db()
@@ -268,6 +301,54 @@ async def get_thread(thread_id: str) -> JSONResponse:
     if row is None:
         return JSONResponse({"detail": "Thread not found"}, status_code=404)
     return JSONResponse(row_to_thread(row))
+
+
+@app.patch("/threads/{thread_id}")
+async def update_thread(thread_id: str, request: Request) -> JSONResponse:
+    """Merge a metadata patch. The sidebar sets graph_id this way."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    conn = db()
+    row = conn.execute("SELECT * FROM threads WHERE thread_id = ?", (thread_id,)).fetchone()
+    if row is None:
+        conn.close()
+        return JSONResponse({"detail": "Thread not found"}, status_code=404)
+
+    metadata = json.loads(row["metadata"])
+    patch = body.get("metadata")
+    if isinstance(patch, dict):
+        metadata.update(patch)
+    conn.execute(
+        "UPDATE threads SET metadata = ?, updated_at = ? WHERE thread_id = ?",
+        (json.dumps(metadata), now_iso(), thread_id),
+    )
+    conn.commit()
+    updated = conn.execute(
+        "SELECT * FROM threads WHERE thread_id = ?", (thread_id,)
+    ).fetchone()
+    conn.close()
+    return JSONResponse(row_to_thread(updated))
+
+
+@app.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str) -> JSONResponse:
+    """Remove a thread and its states. Used by the sidebar's delete action."""
+    conn = db()
+    row = conn.execute("SELECT * FROM threads WHERE thread_id = ?", (thread_id,)).fetchone()
+    if row is None:
+        conn.close()
+        return JSONResponse({"detail": "Thread not found"}, status_code=404)
+    conn.execute("DELETE FROM states WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM runs WHERE thread_id = ?", (thread_id,))
+    conn.execute("DELETE FROM threads WHERE thread_id = ?", (thread_id,))
+    conn.commit()
+    conn.close()
+    return JSONResponse({"thread_id": thread_id})
 
 
 @app.post("/threads/search")
@@ -295,8 +376,7 @@ async def search_threads(request: Request) -> list[dict[str, Any]]:
     return out[:limit]
 
 
-@app.get("/threads/{thread_id}/history")
-async def thread_history(thread_id: str, limit: int = 10) -> list[dict[str, Any]]:
+async def _thread_history(thread_id: str, limit: int) -> list[dict[str, Any]]:
     """
     Returns states oldest-first; the SDK treats the final element as the head.
     Each state needs `values`, `checkpoint.checkpoint_id` and
@@ -331,6 +411,32 @@ async def thread_history(thread_id: str, limit: int = 10) -> list[dict[str, Any]
             }
         )
     return states
+
+
+# The SDK's ThreadsClient.getHistory POSTs to this path (client.js:
+# `getHistory` -> { method: "POST", json: { limit } }). Only implementing GET
+# made every history load 405, which surfaced in the chat UI as
+# "Method Not Allowed". GET is kept because the local test harness and curl
+# use it. Both verbs share the handler so the two paths cannot drift.
+@app.get("/threads/{thread_id}/history")
+async def thread_history_get(thread_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    return await _thread_history(thread_id, limit)
+
+
+@app.post("/threads/{thread_id}/history")
+async def thread_history_post(thread_id: str, request: Request) -> list[dict[str, Any]]:
+    # Body mirrors the SDK: { limit, before, metadata, checkpoint }.
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    try:
+        limit = int(body.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    return await _thread_history(thread_id, limit)
 
 
 def _persist(
