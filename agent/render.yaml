@@ -12,6 +12,15 @@
 # The service is a plain web server; nothing in this repo requires a redeploy
 # to keep the shared link working.
 
+# Root Directory matters. Two supported layouts:
+#
+#   Root Directory = "agent"   -> dockerfilePath ./Dockerfile, context "."
+#   Root Directory = "" (repo root, the default) -> the shim ./Dockerfile at the
+#                                  repo root, which copies from agent/
+#
+# Set Root Directory to "agent" for the first. Either works; the shim exists so a
+# missed field produces a working build instead of
+# "failed to read dockerfile: open Dockerfile: no such file or directory".
 services:
   - type: web
     name: roadtrip-agent

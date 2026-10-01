@@ -1,0 +1,14 @@
+# Keep the build context small. Render clones the repo, so this mainly stops
+# node_modules, build output and the course venv from being sent to the builder.
+node_modules
+.next
+.turbo
+.git
+.github
+apps
+agent/.env
+*.db
+__pycache__
+*.pyc
+.DS_Store
+.ipynb_checkpoints
