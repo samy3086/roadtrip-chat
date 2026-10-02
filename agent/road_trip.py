@@ -122,6 +122,8 @@ Rules:
 - Always give the final budget in Algerian Dinars.
 - Reply in the language the user writes in (French or English).
 - If road_distance does not know a pair of cities, verify the distance with web_search instead.
+- DO NOT show your reasoning process, tool calls, tool inputs, or raw tool results in your final answer. Present ONLY the clean final output.
+- Synthesize everything into a polished, easy-to-read final answer (title, overview, day-by-day itinerary, hotels, restaurants, weather/activities, and budget totals in DZD). No intermediate traces.
 """
 
 from langchain.agents import create_agent
