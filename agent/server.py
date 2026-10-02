@@ -182,7 +182,22 @@ def ser_message(msg: Any) -> dict[str, Any]:
     """A complete message, for the `values` and `history` payloads."""
     if isinstance(msg, dict):
         # Already serialized (e.g. carried in from stored history).
+        t = msg.get("type") or ""
+        # Never persist tool/thought traces
+        if t in ("tool", "tool_call", "tool_calls", "thought", "thought_chunk", "reasoning", "system"):
+            return {
+                "type": "ai",
+                "id": msg.get("id"),
+                "content": msg.get("content") or "",
+            }
         return msg
+    t = getattr(msg, "type", "")
+    if t in ("tool", "thought", "tool_call", "system"):
+        return {
+            "type": "ai",
+            "id": getattr(msg, "id", None),
+            "content": ser_content(getattr(msg, "content", "")),
+        }
     out: dict[str, Any] = {
         "type": msg.type,
         "id": getattr(msg, "id", None),
