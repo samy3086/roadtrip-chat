@@ -178,6 +178,24 @@ def ser_tool_calls(msg: Any) -> list[dict[str, Any]] | None:
     return calls or None
 
 
+def _sanitize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only user-facing messages: human and final ai; drop tool/tool_call/thought."""
+    out: list[dict[str, Any]] = []
+    for m in messages:
+        t = m.get("type") or ""
+        if t in ("tool_call", "tool_call_chunk", "tool_calls", "tool", "tool_response", "thought", "thought_chunk", "reasoning", "system"):
+            continue
+        if t == "human" or t == "user":
+            out.append({**m, "type": "human"})
+            continue
+        if t == "ai" or t == "assistant":
+            out.append({**m, "type": "ai"})
+            continue
+        if m.get("content"):
+            out.append(m)
+    return out
+
+
 def ser_message(msg: Any) -> dict[str, Any]:
     """A complete message, for the `values` and `history` payloads."""
     if isinstance(msg, dict):
