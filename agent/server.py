@@ -179,20 +179,28 @@ def ser_tool_calls(msg: Any) -> list[dict[str, Any]] | None:
 
 
 def _sanitize_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep only user-facing messages: human and final ai; drop tool/tool_call/thought."""
+    """Keep only user-facing messages: human and final ai; drop tool/tool_call/thought.
+    If filtering would remove everything, keep the last message as AI if it has content."""
     out: list[dict[str, Any]] = []
     for m in messages:
-        t = m.get("type") or ""
+        t = (m.get("type") or "").lower()
         if t in ("tool_call", "tool_call_chunk", "tool_calls", "tool", "tool_response", "thought", "thought_chunk", "reasoning", "system"):
             continue
-        if t == "human" or t == "user":
+        if t in ("human", "user"):
             out.append({**m, "type": "human"})
             continue
-        if t == "ai" or t == "assistant":
+        if t in ("ai", "assistant"):
             out.append({**m, "type": "ai"})
             continue
         if m.get("content"):
             out.append(m)
+    if out:
+        return out
+    # fallback: keep last non-empty
+    for m in reversed(messages):
+        c = m.get("content")
+        if c:
+            return [{"type": "ai", "id": m.get("id"), "content": c}]
     return out
 
 
