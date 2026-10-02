@@ -563,6 +563,8 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
         # the payload mixes dicts with message objects and serialization breaks.
         incoming = convert_to_messages(raw_input.get("messages") or [])
         prior_msgs = convert_to_messages(prior_messages) if prior_messages else []
+        # sanitize before invoking
+        prior_msgs = convert_to_messages(_sanitize_messages([ser_message(m) for m in prior_msgs])) if prior_msgs else []
         payload = {"messages": prior_msgs + incoming}
 
         latest_values: dict[str, Any] = {"messages": payload["messages"]}
@@ -605,10 +607,18 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
 
                 elif mode == "values":
                     latest_values = chunk
-                    yield sse(
-                        "values",
-                        {"messages": [ser_message(m) for m in chunk.get("messages", [])]},
-                    )
+                    msgs = chunk.get("messages", [])
+                    sanitized = _sanitize_messages([ser_message(m) for m in msgs])
+                    # Always keep at least the last human+ai visible pair if filtering removed everything
+                    if not sanitized and msgs:
+                        # fallback: keep only the very last ai/human
+                        last = msgs[-1]
+                        lm = ser_message(last)
+                        t = lm.get("type")
+                        if t in ("ai", "assistant", "human"):
+                            sanitized = [lm]
+                    latest_values["messages"] = sanitized
+                    yield sse("values", {"messages": sanitized})
         except asyncio.CancelledError:
             raise
         except Exception as exc:
