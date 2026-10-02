@@ -636,13 +636,14 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
                     msgs = chunk.get("messages", [])
                     sanitized = _sanitize_messages([ser_message(m) for m in msgs])
                     # Always keep at least the last human+ai visible pair if filtering removed everything
-                    if not sanitized and msgs:
-                        # fallback: keep only the very last ai/human
-                        last = msgs[-1]
-                        lm = ser_message(last)
-                        t = lm.get("type")
-                        if t in ("ai", "assistant", "human"):
-                            sanitized = [lm]
+                    if not sanitized:
+                        # fallback: keep the last message regardless of type if it has content
+                        for m in reversed(msgs):
+                            lm = ser_message(m)
+                            c = lm.get("content") or ""
+                            if c:
+                                sanitized = [lm]
+                                break
                     latest_values["messages"] = sanitized
                     yield sse("values", {"messages": sanitized})
         except asyncio.CancelledError:
