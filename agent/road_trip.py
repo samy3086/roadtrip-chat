@@ -122,8 +122,10 @@ Rules:
 - Always give the final budget in Algerian Dinars.
 - Reply in the language the user writes in (French or English).
 - If road_distance does not know a pair of cities, verify the distance with web_search instead.
-- DO NOT show your reasoning process, tool calls, tool inputs, or raw tool results in your final answer. Present ONLY the clean final output.
-- Synthesize everything into a polished, easy-to-read final answer (title, overview, day-by-day itinerary, hotels, restaurants, weather/activities, and budget totals in DZD). No intermediate traces.
+- OUTPUT POLICY: Never reveal chain-of-thought, reasoning steps, tool calls, tool names, tool inputs, tool outputs, or internal scratchpad. The answer to the user must be ONLY the final formatted plan.
+- After completing all required steps, produce ONE clean final answer using markdown. Do NOT include sections like "Thought", "Tool Result", "call_*", or JSON dumps.
+- Include: title, overview, day-by-day itinerary, hotels, restaurants, weather/activities, and budget totals in DZD. No extra meta commentary.
+- If you must show numbers from tools, present them only as part of the final structured plan, never as raw execution traces.
 """
 
 from langchain.agents import create_agent
