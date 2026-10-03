@@ -659,7 +659,7 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
             sm = ser_message(m)
             if sm.get("type") == "human" and last_human is None:
                 last_human = sm; break
-        # last AI (any)
+        # last AI (prefer non-empty content)
         last_ai = None
         for m in reversed(final_msgs):
             sm = ser_message(m)
@@ -670,8 +670,16 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
                     cstr = "".join(p.get("text","") for p in c if isinstance(p,dict))
                 else:
                     cstr = str(c)
-                last_ai = {"type":"ai","id":sm.get("id"),"content":cstr}
-                break
+                if cstr.strip():
+                    last_ai = {"type":"ai","id":sm.get("id"),"content":cstr}
+                    break
+        if last_ai is None:
+            for m in reversed(final_msgs):
+                sm = ser_message(m)
+                if sm.get("type") == "ai":
+                    c = sm.get("content") or ""
+                    last_ai = {"type":"ai","id":sm.get("id"),"content": c if isinstance(c,str) else str(c)}
+                    break
         if last_human: cleaned_final.append(last_human)
         if last_ai: cleaned_final.append(last_ai)
         if not cleaned_final:
