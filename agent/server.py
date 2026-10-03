@@ -633,10 +633,36 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
 
                 elif mode == "values":
                     latest_values = chunk
-                    yield sse(
-                        "values",
-                        {"messages": [ser_message(m) for m in chunk.get("messages", [])]},
-                    )
+                    msgs = chunk.get("messages", []) or []
+                    out: list[dict[str, Any]] = []
+                    # last human
+                    for m in reversed(msgs):
+                        sm = ser_message(m)
+                        t = sm.get("type")
+                        if t == "human" or t == "user":
+                            out.append({**sm, "type": "human"})
+                            break
+                    # last AI with visible content
+                    last_ai = None
+                    for m in reversed(msgs):
+                        sm = ser_message(m)
+                        t = sm.get("type")
+                        if t == "ai" or t == "assistant":
+                            c = sm.get("content") or ""
+                            if isinstance(c, list):
+                                cstr = "".join(
+                                    p.get("text", "") for p in c if isinstance(p, dict)
+                                )
+                            else:
+                                cstr = str(c) if c is not None else ""
+                            if cstr.strip():
+                                last_ai = {"type": "ai", "id": sm.get("id"), "content": cstr}
+                                break
+                    if last_ai:
+                        out.append(last_ai)
+                    # if no AI content yet, emit only human (prevents flashing traces)
+                    latest_values["messages"] = out
+                    yield sse("values", {"messages": out})
         except asyncio.CancelledError:
             raise
         except Exception as exc:
