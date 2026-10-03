@@ -650,46 +650,37 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
             yield sse("end", {})
             return
 
-        # Clean final persisted state: keep only last human + last AI with content
+        # Clean final persisted state: keep last human + last AI (even if content still building)
         final_msgs = latest_values.get("messages", [])
         cleaned_final: list[dict[str, Any]] = []
-        # find last human
+        # last human
         last_human = None
         for m in reversed(final_msgs):
             sm = ser_message(m)
-            t = sm.get("type")
-            if t == "human" and last_human is None:
-                last_human = sm
-                break
-        # find last ai with content
+            if sm.get("type") == "human" and last_human is None:
+                last_human = sm; break
+        # last AI (any)
         last_ai = None
         for m in reversed(final_msgs):
             sm = ser_message(m)
             t = sm.get("type")
-            c = sm.get("content") or ""
-            if t == "ai" and c:
-                # collapse to string if array
+            if t == "ai":
+                c = sm.get("content") or ""
                 if isinstance(c, list):
                     cstr = "".join(p.get("text","") for p in c if isinstance(p,dict))
                 else:
                     cstr = str(c)
-                if cstr.strip():
-                    last_ai = {"type":"ai","id":sm.get("id"),"content":cstr}
-                    break
-        if last_human:
-            cleaned_final.append(last_human)
-        if last_ai:
-            cleaned_final.append(last_ai)
+                last_ai = {"type":"ai","id":sm.get("id"),"content":cstr}
+                break
+        if last_human: cleaned_final.append(last_human)
+        if last_ai: cleaned_final.append(last_ai)
         if not cleaned_final:
-            # fallback: keep last msg
             for m in reversed(final_msgs):
-                sm = ser_message(m)
-                if sm.get("content"):
-                    cleaned_final = [sm]; break
+                sm = ser_message(m); 
+                if sm.get("content") or sm.get("type"):
+                    cleaned_final=[sm]; break
         latest_values["messages"] = cleaned_final
-        _persist(
-            thread_id, latest_values, prior_checkpoint_id, run_id, prior_step, failed=False
-        )
+        _persist(thread_id, latest_values, prior_checkpoint_id, run_id, prior_step, failed=False)
         yield sse("values", {"messages": cleaned_final})
         yield sse("end", {})
 
