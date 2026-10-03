@@ -633,10 +633,42 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
 
                 elif mode == "values":
                     latest_values = chunk
-                    yield sse(
-                        "values",
-                        {"messages": [ser_message(m) for m in chunk.get("messages", [])]},
-                    )
+                    msgs = chunk.get("messages", [])
+                    # sanitize all values: keep only human + last AI with content so far
+                    out = []
+                    # keep last human
+                    for m in msgs:
+                        sm = ser_message(m)
+                        t = sm.get("type")
+                        if t == "human":
+                            out.append(sm)
+                            break  # first/last seen? track last; easier: scan and keep last human
+                    # better: keep all humans + last AI
+                    out = []
+                    last_ai = None
+                    for m in msgs:
+                        sm = ser_message(m)
+                        t = sm.get("type")
+                        if t == "human":
+                            out.append(sm)
+                        elif t == "ai":
+                            c = sm.get("content") or ""
+                            if isinstance(c, list):
+                                cstr = "".join(p.get("text","") for p in c if isinstance(p,dict))
+                            else:
+                                cstr = str(c)
+                            if cstr.strip():
+                                last_ai = {"type":"ai","id":sm.get("id"),"content":cstr}
+                    if last_ai:
+                        out.append(last_ai)
+                    if not out:
+                        # fallback: keep last
+                        for m in reversed(msgs):
+                            sm = ser_message(m)
+                            if sm.get("content"):
+                                out = [sm]; break
+                    latest_values["messages"] = out
+                    yield sse("values", {"messages": out})
         except asyncio.CancelledError:
             raise
         except Exception as exc:
