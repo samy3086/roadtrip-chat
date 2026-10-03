@@ -602,34 +602,9 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
                 payload, stream_mode=["messages", "values"]
             ):
                 if mode == "messages":
-                    # LangGraph yields (message_chunk, metadata) tuples here,
-                    # not a bare chunk. Older shapes yield the chunk directly.
-                    message_chunk = chunk[0] if isinstance(chunk, tuple) else chunk
-                    is_ai = type(message_chunk).__name__ in (
-                        "AIMessageChunk",
-                        "ChatMessageChunk",
-                    )
-                    has_content = bool(message_chunk.content)
-                    tool_chunks = getattr(message_chunk, "tool_call_chunks", None) or []
-                    starts_call = bool(tool_chunks) and tool_chunks[0].get("index") == 0
-
-                    if not is_ai:
-                        # Tool/system chunks render fine through `values`.
-                        pass
-                    elif not has_content:
-                        # Keep ids stable across a message's chunks, including
-                        # the tool-call preamble where content is still empty.
-                        if starts_call or current_id is None:
-                            current_id = getattr(message_chunk, "id", None) or str(
-                                uuid.uuid4()
-                            )
-                    else:
-                        current_id = getattr(message_chunk, "id", None) or current_id
-                        if current_id is None:
-                            current_id = str(uuid.uuid4())
-
-                    if is_ai and has_content and current_id:
-                        yield sse("messages", [ser_chunk(message_chunk, current_id)])
+                    # Suppress intermediate messages (thought/tool deltas) to avoid
+                    # showing infrastructure in the UI. Only the final cleaned
+                    # values state is emitted.
 
                 elif mode == "values":
                     latest_values = chunk
