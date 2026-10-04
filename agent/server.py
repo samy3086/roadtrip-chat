@@ -602,9 +602,7 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
                 payload, stream_mode=["messages", "values"]
             ):
                 if mode == "messages":
-                    # Suppress intermediate messages (thought/tool deltas) to avoid
-                    # showing infrastructure in the UI. Only the final cleaned
-                    # values state is emitted.
+                    continue  # Never emit messages events - only clean values
 
                 elif mode == "values":
                     latest_values = chunk
