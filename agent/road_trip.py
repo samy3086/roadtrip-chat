@@ -131,7 +131,7 @@ Rules:
 from langchain.agents import create_agent
 
 agent = create_agent(
-    model=ChatGoogleGenerativeAI(model="gemini-1.5-flash-latest"),
+    model=ChatGoogleGenerativeAI(model="gemini-2.0-flash-lite"),
     tools=[web_search, road_distance, fuel_cost, drive_leg, nights_between, budget_totals],
     system_prompt=system_prompt
 )
