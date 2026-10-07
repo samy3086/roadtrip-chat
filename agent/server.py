@@ -606,32 +606,8 @@ async def stream_run(thread_id: str, request: Request) -> StreamingResponse:
 
                 elif mode == "values":
                     latest_values = chunk
-                    msgs = chunk.get("messages", []) or []
-                    # Never emit tool/thought traces. Keep only human + final AI with text.
-                    out: list[dict[str, Any]] = []
-                    # last human
-                    for m in reversed(msgs):
-                        sm = ser_message(m)
-                        t = (sm.get("type") or "").lower()
-                        if t in ("human", "user"):
-                            out.append({"type": "human", "id": sm.get("id"), "content": sm.get("content")})
-                            break
-                    # last AI with visible content
-                    for m in reversed(msgs):
-                        sm = ser_message(m)
-                        t = (sm.get("type") or "").lower()
-                        if t in ("ai", "assistant"):
-                            c = sm.get("content") or ""
-                            if isinstance(c, list):
-                                cstr = "".join(p.get("text", "") for p in c if isinstance(p, dict))
-                            else:
-                                cstr = str(c) if c is not None else ""
-                            if cstr.strip():
-                                out.append({"type": "ai", "id": sm.get("id"), "content": cstr})
-                                break
-                    # If no AI text yet, emit nothing but human is enough? but don't include tool/thought
-                    latest_values["messages"] = out
-                    yield sse("values", {"messages": out})
+                    # Don't emit incremental values during tool execution
+                    # Only emit the final clean state later
         except asyncio.CancelledError:
             raise
         except Exception as exc:
